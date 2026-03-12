@@ -48,7 +48,6 @@ const generateMoMoSignature = (data) => {
   return crypto.createHmac('sha256', MOMO_CONFIG.secretKey).update(rawSignature).digest('hex');
 };
 
-// ✅ HÀM GỬI EMAIL + NOTIFICATION SAU THANH TOÁN (CONFIRMED THAY VÌ PAID_PENDING)
 async function sendBookingSuccessNotifications(bookingId) {
   if (!pool) {
     console.error('❌ Pool not initialized');
@@ -77,17 +76,13 @@ async function sendBookingSuccessNotifications(bookingId) {
 
     console.log(`📨 Sending success notifications for booking ${bookingId}`);
 
-    // Format date/time
     let slotDateStr = booking.slotDate instanceof Date 
       ? booking.slotDate.toISOString().split('T')[0]
       : String(booking.slotDate).split('T')[0];
     
     const timeStr = String(booking.slotTime).slice(0, 5);
 
-    // ✅ 1. GỬI EMAIL XÁC NHẬN (KHÔNG PHẢI "CHỜ DUYỆT")
     if (emailService && booking.email) {
-      console.log(`📧 Sending booking confirmation email to: ${booking.email}`);
-      
       emailService.sendBookingConfirmation(booking.email, {
         bookingCode: booking.bookingCode,
         childName: booking.childName,
@@ -105,21 +100,15 @@ async function sendBookingSuccessNotifications(bookingId) {
       });
     }
 
-    // ✅ 2. GỬI THÔNG BÁO WEB REALTIME
     if (sendNotification) {
       sendNotification(
         booking.userId,
         '🎉 Đặt lịch thành công!',
         `Thanh toán thành công! Lịch tiêm cho bé ${booking.childName} (Mã: ${booking.bookingCode}) đã được xác nhận tại ${booking.centerName}. Vui lòng đến đúng giờ hẹn!`,
         'success'
-      ).then(() => {
-        console.log(`✅ Notification sent to user ${booking.userId}`);
-      }).catch(err => {
-        console.error('❌ Notification error:', err.message);
-      });
+      ).catch(err => console.error('❌ Notification error:', err.message));
     }
 
-    // ✅ 3. BROADCAST CHO STAFF (booking_confirmed)
     if (broadcastToStaff) {
       broadcastToStaff(booking.centerId, {
         type: 'booking_confirmed',
@@ -140,7 +129,6 @@ async function sendBookingSuccessNotifications(bookingId) {
       });
     }
 
-    // ✅ 4. GỬI ĐẾN USER (real-time update)
     if (sendToUser) {
       sendToUser(booking.userId, {
         type: 'booking_status_changed',
@@ -211,8 +199,8 @@ router.post('/momo/create', authenticateToken, async (req, res) => {
     if (response.data.resultCode === 0) {
       await pool.execute(
         `INSERT INTO PaymentTransactions (bookingId, userId, amount, paymentMethod, transactionId, status)
-         VALUES (?, ?, ?, 'momo', ?, 'pending')`,
-        [bookingId, req.user.id, amount, orderId]
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [bookingId, req.user.id, amount, 'momo', orderId, 'pending']
       );
 
       res.json({
@@ -271,8 +259,8 @@ router.post('/vnpay/create', authenticateToken, async (req, res) => {
     if (paymentData.success && paymentData.payUrl) {
       await pool.execute(
         `INSERT INTO PaymentTransactions (bookingId, userId, amount, paymentMethod, transactionId, status)
-         VALUES (?, ?, ?, 'vnpay', ?, 'pending')`,
-        [bookingId, req.user.id, amount, orderId]
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [bookingId, req.user.id, amount, 'vnpay', orderId, 'pending']
       );
 
       res.json({
@@ -312,9 +300,7 @@ router.get('/momo/callback', async (req, res) => {
 
     if (!bookingId && orderId) {
       const parts = orderId.split('_');
-      if (parts.length >= 2) {
-        bookingId = parts[1];
-      }
+      if (parts.length >= 2) bookingId = parts[1];
     }
 
     const frontendUrl = process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com';
@@ -324,19 +310,17 @@ router.get('/momo/callback', async (req, res) => {
       
       if (pool && bookingId) {
         try {
-          // ✅ CHUYỂN THẲNG SANG confirmed (BỎ QUA paid_pending)
           await pool.execute(
             'UPDATE VaccinationBookings SET paymentStatus = ?, status = ?, paymentMethod = ? WHERE id = ?',
             ['paid', 'confirmed', 'momo', bookingId]
           );
 
           await pool.execute(
-          'UPDATE PaymentTransactions SET status = ?, paidAt = NOW() WHERE transactionId = ?',
-          ['success', orderId]
-        );
+            'UPDATE PaymentTransactions SET status = ?, paidAt = NOW() WHERE transactionId = ?',
+            ['success', orderId]
+          );
 
           await sendBookingSuccessNotifications(bookingId);
-
         } catch (dbErr) {
           console.error('Error updating DB:', dbErr);
         }
@@ -348,7 +332,7 @@ router.get('/momo/callback', async (req, res) => {
       
       if (pool && orderId) {
         try {
-                    await pool.execute(
+          await pool.execute(
             'UPDATE PaymentTransactions SET status = ? WHERE transactionId = ?',
             ['failed', orderId]
           );
@@ -396,22 +380,19 @@ router.post('/momo/ipn', async (req, res) => {
 
     if (!bookingId && orderId) {
       const parts = orderId.split('_');
-      if (parts.length >= 2) {
-        bookingId = parts[1];
-      }
+      if (parts.length >= 2) bookingId = parts[1];
     }
 
     if (resultCode === 0) {
       if (pool && bookingId) {
-        // ✅ CHUYỂN THẲNG SANG confirmed
         await pool.execute(
-          'UPDATE VaccinationBookings SET paymentStatus = "paid", status = "confirmed", paymentMethod = "momo" WHERE id = ?',
-          [bookingId]
+          'UPDATE VaccinationBookings SET paymentStatus = ?, status = ?, paymentMethod = ? WHERE id = ?',
+          ['paid', 'confirmed', 'momo', bookingId]
         );
 
         await pool.execute(
-          'UPDATE PaymentTransactions SET status = "success", paidAt = NOW() WHERE transactionId = ?',
-          [orderId]
+          'UPDATE PaymentTransactions SET status = ?, paidAt = NOW() WHERE transactionId = ?',
+          ['success', orderId]
         );
 
         await sendBookingSuccessNotifications(bookingId);
@@ -421,8 +402,8 @@ router.post('/momo/ipn', async (req, res) => {
     } else {
       if (pool && orderId) {
         await pool.execute(
-          'UPDATE PaymentTransactions SET status = "failed" WHERE transactionId = ?',
-          [orderId]
+          'UPDATE PaymentTransactions SET status = ? WHERE transactionId = ?',
+          ['failed', orderId]
         );
       }
 
@@ -445,9 +426,11 @@ router.get('/vnpay/callback', async (req, res) => {
     const vnpParams = { ...req.query };
     const isValid = paymentService.verifyVNPaySignature(vnpParams);
 
+    const frontendUrl = process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com';
+
     if (!isValid) {
       console.error('❌ Invalid VNPay signature');
-      return res.redirect(`${process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com'}/payment/failure?message=Payment+failed&bookingId=${bookingId || ''}`);
+      return res.redirect(`${frontendUrl}/payment/failure?message=Payment+failed`);
     }
 
     const { vnp_TxnRef, vnp_ResponseCode, vnp_Amount, vnp_TransactionNo } = req.query;
@@ -457,34 +440,31 @@ router.get('/vnpay/callback', async (req, res) => {
 
     if (vnp_ResponseCode === '00') {
       if (pool && bookingId) {
-        // ✅ CHUYỂN THẲNG SANG confirmed
         await pool.execute(
-          'UPDATE VaccinationBookings SET paymentStatus = "paid", status = "confirmed", paymentMethod = "vnpay", paymentTransactionId = ? WHERE id = ?',
-          [vnp_TransactionNo, bookingId]
+          'UPDATE VaccinationBookings SET paymentStatus = ?, status = ?, paymentMethod = ?, paymentTransactionId = ? WHERE id = ?',
+          ['paid', 'confirmed', 'vnpay', vnp_TransactionNo, bookingId]
         );
 
         await pool.execute(
-          'UPDATE PaymentTransactions SET status = "success", paidAt = NOW() WHERE transactionId = ?',
-          [vnp_TxnRef]
+          'UPDATE PaymentTransactions SET status = ?, paidAt = NOW() WHERE transactionId = ?',
+          ['success', vnp_TxnRef]
         );
 
         await sendBookingSuccessNotifications(bookingId);
       }
 
       console.log(`✅ VNPay payment success for booking ${bookingId}`);
-      
-      return res.redirect(`${process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com'}/payment/success?orderId=${vnp_TxnRef}&amount=${vnp_Amount / 100}`);
+      return res.redirect(`${frontendUrl}/payment/success?orderId=${vnp_TxnRef}&amount=${vnp_Amount / 100}`);
     } else {
       if (pool && vnp_TxnRef) {
         await pool.execute(
-          'UPDATE PaymentTransactions SET status = "failed" WHERE transactionId = ?',
-          [vnp_TxnRef]
+          'UPDATE PaymentTransactions SET status = ? WHERE transactionId = ?',
+          ['failed', vnp_TxnRef]
         );
       }
 
       console.log(`❌ VNPay payment failed for booking ${bookingId}, code: ${vnp_ResponseCode}`);
-      
-      return res.redirect(`${process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com'}/payment/failure?message=Payment+failed&bookingId=${bookingId || ''}`);
+      return res.redirect(`${frontendUrl}/payment/failure?message=Payment+failed&bookingId=${bookingId || ''}`);
     }
   } catch (err) {
     console.error('❌ VNPay callback error:', err);
@@ -512,15 +492,14 @@ router.get('/vnpay/ipn', async (req, res) => {
 
     if (vnp_ResponseCode === '00') {
       if (pool && bookingId) {
-        // ✅ CHUYỂN THẲNG SANG confirmed
         await pool.execute(
-          'UPDATE VaccinationBookings SET paymentStatus = "paid", status = "confirmed", paymentMethod = "vnpay", paymentTransactionId = ? WHERE id = ?',
-          [vnp_TransactionNo, bookingId]
+          'UPDATE VaccinationBookings SET paymentStatus = ?, status = ?, paymentMethod = ?, paymentTransactionId = ? WHERE id = ?',
+          ['paid', 'confirmed', 'vnpay', vnp_TransactionNo, bookingId]
         );
 
         await pool.execute(
-          'UPDATE PaymentTransactions SET status = "success", paidAt = NOW() WHERE transactionId = ?',
-          [vnp_TxnRef]
+          'UPDATE PaymentTransactions SET status = ?, paidAt = NOW() WHERE transactionId = ?',
+          ['success', vnp_TxnRef]
         );
 
         await sendBookingSuccessNotifications(bookingId);
@@ -530,8 +509,8 @@ router.get('/vnpay/ipn', async (req, res) => {
     } else {
       if (pool && vnp_TxnRef) {
         await pool.execute(
-          'UPDATE PaymentTransactions SET status = "failed" WHERE transactionId = ?',
-          [vnp_TxnRef]
+          'UPDATE PaymentTransactions SET status = ? WHERE transactionId = ?',
+          ['failed', vnp_TxnRef]
         );
       }
 
@@ -574,24 +553,18 @@ router.post('/cancel', authenticateToken, async (req, res) => {
     }
 
     await connection.execute(
-      `UPDATE VaccinationBookings 
-       SET status = 'cancelled', paymentStatus = 'refunded' 
-       WHERE id = ?`,
-      [bookingId]
+      'UPDATE VaccinationBookings SET status = ?, paymentStatus = ? WHERE id = ?',
+      ['cancelled', 'refunded', bookingId]
     );
 
     await connection.execute(
-      `UPDATE TimeSlots 
-       SET isBooked = 0, bookedBy = NULL 
-       WHERE id = ?`,
-      [booking.timeSlotId]
+      'UPDATE TimeSlots SET isBooked = ?, bookedBy = NULL WHERE id = ?',
+      [0, booking.timeSlotId]
     );
 
     await connection.execute(
-      `UPDATE PaymentTransactions 
-       SET status = 'failed' 
-       WHERE bookingId = ? AND status = 'pending'`,
-      [bookingId]
+      'UPDATE PaymentTransactions SET status = ? WHERE bookingId = ? AND status = ?',
+      ['failed', bookingId, 'pending']
     );
 
     await connection.commit();
