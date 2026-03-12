@@ -303,7 +303,7 @@ router.get('/momo/callback', async (req, res) => {
       if (parts.length >= 2) bookingId = parts[1];
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://tvnandrenaline.vercel.app';
 
     if (resultCode === '0') {
       console.log(`✅ MoMo payment success for booking ${bookingId}`);
