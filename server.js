@@ -34,7 +34,7 @@ const pool = mysql.createPool({
   password: process.env.DB_PASS || '',
   database: process.env.DB_NAME || 'TVNAdrenaline',
   ssl: {
-    rejectUnauthorized: true
+    rejectUnauthorized: false 
   },
   waitForConnections: true,
   connectionLimit: 15,
