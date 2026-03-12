@@ -207,7 +207,7 @@ class EmailService {
       </div>
       
       <div style="text-align: center;">
-        <a href="${process.env.FRONTEND_URL || 'http://localhost:3001'}/my-bookings" class="cta-button">
+        <a href="${process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com'}/my-bookings" class="cta-button">
           Xem QR Code & Chi tiết
         </a>
       </div>
@@ -336,7 +336,7 @@ class EmailService {
             <li>Mã QR check-in đã sẵn sàng trong tài khoản của bạn</li>
           </ul>
           
-          <a href="http://localhost:3001/my-bookings" class="button">Xem Lịch Của Tôi</a>
+          <a href="${process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com'}/my-bookings" class="button">Xem Lịch Của Tôi</a>
           
           <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
             Nếu có thắc mắc, vui lòng liên hệ: <br>

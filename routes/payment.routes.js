@@ -317,7 +317,7 @@ router.get('/momo/callback', async (req, res) => {
       }
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com';
 
     if (resultCode === '0') {
       console.log(`✅ MoMo payment success for booking ${bookingId}`);
@@ -361,7 +361,7 @@ router.get('/momo/callback', async (req, res) => {
     }
   } catch (err) {
     console.error('❌ MoMo callback error:', err);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com';
     return res.redirect(`${frontendUrl}/payment/failure?message=System+error`);
   }
 });
@@ -447,7 +447,7 @@ router.get('/vnpay/callback', async (req, res) => {
 
     if (!isValid) {
       console.error('❌ Invalid VNPay signature');
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3001'}/payment/failure?message=Invalid+signature`);
+      return res.redirect(`${process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com'}/payment/failure?message=Payment+failed&bookingId=${bookingId || ''}`);
     }
 
     const { vnp_TxnRef, vnp_ResponseCode, vnp_Amount, vnp_TransactionNo } = req.query;
@@ -473,7 +473,7 @@ router.get('/vnpay/callback', async (req, res) => {
 
       console.log(`✅ VNPay payment success for booking ${bookingId}`);
       
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3001'}/payment/success?orderId=${vnp_TxnRef}&amount=${vnp_Amount / 100}`);
+      return res.redirect(`${process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com'}/payment/success?orderId=${vnp_TxnRef}&amount=${vnp_Amount / 100}`);
     } else {
       if (pool && vnp_TxnRef) {
         await pool.execute(
@@ -484,11 +484,11 @@ router.get('/vnpay/callback', async (req, res) => {
 
       console.log(`❌ VNPay payment failed for booking ${bookingId}, code: ${vnp_ResponseCode}`);
       
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3001'}/payment/failure?message=Payment+failed&bookingId=${bookingId || ''}`);
+      return res.redirect(`${process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com'}/payment/failure?message=Payment+failed&bookingId=${bookingId || ''}`);
     }
   } catch (err) {
     console.error('❌ VNPay callback error:', err);
-    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3001'}/payment/failure?message=System+error`);
+    return res.redirect(`${process.env.FRONTEND_URL || 'https://tvnadrenaline.onrender.com'}/payment/failure?message=System+error`);
   }
 });
 
