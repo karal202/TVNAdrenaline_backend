@@ -331,9 +331,9 @@ router.get('/momo/callback', async (req, res) => {
           );
 
           await pool.execute(
-            'UPDATE PaymentTransactions SET status = "success", paidAt = NOW() WHERE transactionId = ?',
-            [orderId]
-          );
+          'UPDATE PaymentTransactions SET status = ?, paidAt = NOW() WHERE transactionId = ?',
+          ['success', orderId]
+        );
 
           await sendBookingSuccessNotifications(bookingId);
 
@@ -348,9 +348,9 @@ router.get('/momo/callback', async (req, res) => {
       
       if (pool && orderId) {
         try {
-          await pool.execute(
-            'UPDATE PaymentTransactions SET status = "failed" WHERE transactionId = ?',
-            [orderId]
+                    await pool.execute(
+            'UPDATE PaymentTransactions SET status = ? WHERE transactionId = ?',
+            ['failed', orderId]
           );
         } catch (dbErr) {
           console.error('Error updating DB:', dbErr);
