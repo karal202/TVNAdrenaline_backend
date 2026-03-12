@@ -326,8 +326,8 @@ router.get('/momo/callback', async (req, res) => {
         try {
           // ✅ CHUYỂN THẲNG SANG confirmed (BỎ QUA paid_pending)
           await pool.execute(
-            'UPDATE VaccinationBookings SET paymentStatus = "paid", status = "confirmed", paymentMethod = "momo" WHERE id = ?',
-            [bookingId]
+            'UPDATE VaccinationBookings SET paymentStatus = ?, status = ?, paymentMethod = ? WHERE id = ?',
+            ['paid', 'confirmed', 'momo', bookingId]
           );
 
           await pool.execute(
